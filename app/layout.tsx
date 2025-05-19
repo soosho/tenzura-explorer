@@ -9,6 +9,10 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata = {
   title: process.env.NEXT_PUBLIC_COIN_NAME + ' Explorer',
   description: 'Blockchain explorer for ' + process.env.NEXT_PUBLIC_COIN_NAME,
+  metadataBase: new URL('https://chain.tenzura.io'),
+  other: {
+    'Cache-Control': 'no-store, max-age=0',
+  },
 };
 
 // Server component that fetches blockchain data
