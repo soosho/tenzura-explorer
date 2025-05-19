@@ -77,7 +77,19 @@ export default function Home() {
   // Render the same UI you already have, but with state variables
   return (
     <div className="space-y-6">
-      {/* Keep your existing UI structure */}
+      {/* Network status bar */}
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center">
+          <Network className="h-3.5 w-3.5 mr-1" />
+          <span>Network: <span className="font-medium">{blockchainStats.chain}</span></span>
+        </div>
+        <div className="flex items-center ml-0 sm:ml-4">
+          <Users className="h-3.5 w-3.5 mr-1" />
+          <span>Connections: <span className="font-medium">{networkInfo.connections}</span></span>
+        </div>
+      </div>
+
+      {/* Keep the existing UI structure below */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
           <p className="text-muted-foreground mt-1">Explore blocks, transactions and addresses on the blockchain</p>
@@ -104,7 +116,7 @@ export default function Home() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div className="flex flex-col gap-1">
               <div className="text-sm font-medium text-muted-foreground flex items-center">
                 <Layers className="h-4 w-4 mr-1" />
@@ -133,20 +145,7 @@ export default function Home() {
               </div>
               <div className="text-xl font-bold">{formatNumber(blockchainStats.moneysupply)} {process.env.NEXT_PUBLIC_COIN_SYMBOL}</div>
             </div>
-            <div className="flex flex-col gap-1">
-              <div className="text-sm font-medium text-muted-foreground flex items-center">
-                <Users className="h-4 w-4 mr-1" />
-                Connections
-              </div>
-              <div className="text-xl font-bold">{networkInfo.connections}</div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <div className="text-sm font-medium text-muted-foreground flex items-center">
-                <Network className="h-4 w-4 mr-1" />
-                Network
-              </div>
-              <div className="text-xl font-bold">{blockchainStats.chain}</div>
-            </div>
+            {/* Removed Network and Connections from here */}
           </div>
         </CardContent>
       </Card>
