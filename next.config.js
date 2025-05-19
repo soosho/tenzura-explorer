@@ -3,19 +3,9 @@ const nextConfig = {
   // Enable React strict mode for better development experience
   reactStrictMode: true,
   
-  // Disable static page generation - forces dynamic rendering
-  staticPageGenerationTimeout: 0,
-  
-  // Configure API routes
-  api: {
-    responseLimit: false,
-    externalResolver: true,
-  },
-  
   // Add experimental options to prevent optimization that could cause caching
   experimental: {
-    // Prevents Next.js from static optimization
-    enableExperimentalCodeRemoving: false,
+    // We'll use a different approach instead
   },
   
   // Add headers to all pages
@@ -54,15 +44,11 @@ const nextConfig = {
     ];
   },
   
-  // Set output directory (optional, uncomment if needed)
-  // distDir: 'build',
-  
-  // Image configuration (optional, adjust as needed)
+  // Image configuration
   images: {
     domains: ['chain.tenzura.io'],
   },
   
-  // Enable SWR for client-side data fetching with auto-revalidation
   swcMinify: true,
 };
 
