@@ -1,82 +1,83 @@
-import { getNetworkInfo, getBlockchainStats } from '@/lib/blockchain-api';
-import clientPromise from '@/lib/mongodb';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatNumber, timeAgo } from '@/lib/utils';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Block, Transaction } from '@/lib/models';
 import { 
-  BarChart3, 
-  Layers,
-  Network, 
-  Clock, 
-  Database,
-  Users,
-  ArrowUpDown,
-  Zap,      // Added for hashrate
-  Coins     // Added for coin supply
+  BarChart3, Layers, Network, Clock, Database,
+  Users, ArrowUpDown, Zap, Coins
 } from 'lucide-react';
 
-async function getLatestBlocks(): Promise<Block[]> {  // Add return type
-  const client = await clientPromise;
-  const db = client.db();
-  
-  return db.collection('blocks')
-    .find({})
-    .sort({ height: -1 })
-    .limit(10)
-    .toArray() as Promise<Block[]>;  // Add type assertion
-}
-
-async function getLatestTransactions(): Promise<Transaction[]> {  // Add return type
-  const client = await clientPromise;
-  const db = client.db();
-  
-  return db.collection('txs')
-    .find({})
-    .sort({ timestamp: -1 })
-    .limit(10)
-    .toArray() as Promise<Transaction[]>;  // Add type assertion
-}
-
-// Add this function to your existing utility functions or to lib/utils.ts
-function formatCoinSupply(supply: number): string {
-  // Format with commas as thousand separators and fixed decimal places
-  const formattedNumber = supply.toLocaleString('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
+export default function Home() {
+  // State for all the data that needs to refresh
+  const [blockchainStats, setBlockchainStats] = useState({
+    blocks: 0,
+    difficulty: 0,
+    networkhashps: 0,
+    moneysupply: 0,
+    chain: ""
   });
-  
-  // For large numbers (millions+), add abbreviation
-  if (supply >= 1_000_000) {
-    const millions = supply / 1_000_000;
-    return `${millions.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    })}M ${process.env.NEXT_PUBLIC_COIN_SYMBOL}`;
+  const [networkInfo, setNetworkInfo] = useState({ connections: 0 });
+  const [latestBlocks, setLatestBlocks] = useState<Block[]>([]);
+  const [latestTxs, setLatestTxs] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Function to fetch all data
+  const fetchData = async () => {
+    try {
+      const timestamp = Date.now(); // To prevent caching
+      
+      // Fetch blockchain stats
+      const statsRes = await fetch(`/api/stats?t=${timestamp}`);
+      const stats = await statsRes.json();
+      
+      // Fetch network info
+      const networkRes = await fetch(`/api/network?t=${timestamp}`);
+      const network = await networkRes.json();
+      
+      // Fetch latest blocks
+      const blocksRes = await fetch(`/api/blocks/latest?t=${timestamp}`);
+      const blocks = await blocksRes.json();
+      
+      // Fetch latest transactions
+      const txsRes = await fetch(`/api/transactions/latest?t=${timestamp}`);
+      const txs = await txsRes.json();
+      
+      // Update all state
+      setBlockchainStats(stats);
+      setNetworkInfo(network);
+      setLatestBlocks(blocks);
+      setLatestTxs(txs);
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
+
+  // Initial data fetch and set up auto-refresh
+  useEffect(() => {
+    fetchData();
+    
+    // Set up 30-second refresh interval
+    const intervalId = setInterval(fetchData, 30000);
+    
+    // Clean up on unmount
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Show loading state while initial data loads
+  if (isLoading) {
+    return <div className="flex justify-center items-center p-12">Loading blockchain data...</div>;
   }
-  
-  return `${formattedNumber} ${process.env.NEXT_PUBLIC_COIN_SYMBOL}`;
-}
 
-export default async function Home() {
-  const [blockchainStats, networkInfo, latestBlocks, latestTxs] = await Promise.all([
-    getBlockchainStats(),
-    getNetworkInfo(),
-    getLatestBlocks(),
-    getLatestTransactions()
-  ]);
-
+  // Render the same UI you already have, but with state variables
   return (
     <div className="space-y-6">
+      {/* Keep your existing UI structure */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
           <p className="text-muted-foreground mt-1">Explore blocks, transactions and addresses on the blockchain</p>
@@ -92,18 +93,6 @@ export default async function Home() {
         </div>
       </div>
 
-      {/* Network status bar */}
-      <div className="flex flex-col sm:flex-row sm:justify-end gap-2 text-sm text-muted-foreground">
-        <div className="flex items-center">
-          <Network className="h-3.5 w-3.5 mr-1" />
-          <span>Network: <span className="font-medium">{blockchainStats.chain}</span></span>
-        </div>
-        <div className="flex items-center ml-0 sm:ml-4">
-          <Users className="h-3.5 w-3.5 mr-1" />
-          <span>Connections: <span className="font-medium">{networkInfo.connections}</span></span>
-        </div>
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -115,7 +104,7 @@ export default async function Home() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <div className="flex flex-col gap-1">
               <div className="text-sm font-medium text-muted-foreground flex items-center">
                 <Layers className="h-4 w-4 mr-1" />
@@ -142,9 +131,21 @@ export default async function Home() {
                 <Coins className="h-4 w-4 mr-1" />
                 Coin Supply
               </div>
-              <div className="text-xl font-bold">
-                {formatCoinSupply(blockchainStats.moneysupply)}
+              <div className="text-xl font-bold">{formatNumber(blockchainStats.moneysupply)} {process.env.NEXT_PUBLIC_COIN_SYMBOL}</div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <div className="text-sm font-medium text-muted-foreground flex items-center">
+                <Users className="h-4 w-4 mr-1" />
+                Connections
               </div>
+              <div className="text-xl font-bold">{networkInfo.connections}</div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <div className="text-sm font-medium text-muted-foreground flex items-center">
+                <Network className="h-4 w-4 mr-1" />
+                Network
+              </div>
+              <div className="text-xl font-bold">{blockchainStats.chain}</div>
             </div>
           </div>
         </CardContent>
@@ -170,7 +171,7 @@ export default async function Home() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {latestBlocks.map((block: Block) => (
+                {latestBlocks.map((block) => (
                   <TableRow key={block.hash}>
                     <TableCell>
                       <Link href={`/block/${block.height}`} className="hover:underline text-primary">
@@ -216,7 +217,7 @@ export default async function Home() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {latestTxs.map((tx: Transaction) => (
+                {latestTxs.map((tx) => (
                   <TableRow key={tx.txid}>
                     <TableCell className="font-mono">
                       <Link href={`/tx/${tx.txid}`} className="hover:underline text-primary">

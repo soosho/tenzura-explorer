@@ -12,8 +12,8 @@ if (!fs.existsSync(tmpDir)) {
 
 console.log('Starting Tenzura Explorer sync daemon...');
 
-// Schedule blockchain index update every minute
-cron.schedule('* * * * *', () => {
+// Schedule blockchain index update every 30 seconds
+setInterval(() => {
   console.log(`[${new Date().toISOString()}] Running scheduled blockchain sync...`);
   
   exec('npx tsx scripts/sync.ts index update', (error, stdout, stderr) => {
@@ -28,7 +28,7 @@ cron.schedule('* * * * *', () => {
       console.log(`Sync output: ${stdout}`);
     }
   });
-});
+}, 30000); // 30000 milliseconds = 30 seconds
 
 // Schedule market data update every 5 minutes
 cron.schedule('*/5 * * * *', () => {
