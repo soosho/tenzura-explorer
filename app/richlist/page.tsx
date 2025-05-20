@@ -13,6 +13,7 @@ import { formatNumber } from '@/lib/utils';
 import Link from 'next/link';
 import { Wallet, Coins } from 'lucide-react';
 import { getBlockchainStats } from "@/lib/blockchain-api";
+import { KnownAddressBadge } from "@/components/known-address-badge";
 
 // Force this page to be dynamically rendered
 export const dynamic = 'force-dynamic';
@@ -146,9 +147,12 @@ export default async function RichListPage() {
                     <TableRow key={address.address || index}>
                       <TableCell>{rank}</TableCell>
                       <TableCell className="font-mono max-w-[200px] truncate">
-                        <Link href={`/address/${address.address}`} className="hover:underline text-primary">
-                          {address.address || "Unknown"}
-                        </Link>
+                        <div className="flex items-center">
+                          <Link href={`/address/${address.address}`} className="hover:underline text-primary">
+                            {address.address || "Unknown"}
+                          </Link>
+                          <KnownAddressBadge address={address.address} />
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end">

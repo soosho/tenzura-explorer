@@ -18,6 +18,7 @@ import {
 import { CopyButton } from '@/components/copy-button';
 import { FilterControls } from '@/components/filter-controls';
 import Image from 'next/image';
+import { KnownAddressBadge } from "@/components/known-address-badge";
 
 // Define interfaces
 interface AddressTransaction {
@@ -162,7 +163,12 @@ export default async function AddressPage({
               
               {/* Make address larger and on its own line */}
               <CardDescription className="mt-3">
-                <span className="font-mono text-base md:text-lg break-all block mb-3">{address}</span>
+                <div className="flex items-center">
+                  <h1 className="text-2xl font-bold tracking-tight font-mono break-all">
+                    {address}
+                  </h1>
+                  <KnownAddressBadge address={address} />
+                </div>
                 
                 {/* Move buttons below address and make them consistent */}
                 <div className="flex flex-wrap gap-2 mt-2">

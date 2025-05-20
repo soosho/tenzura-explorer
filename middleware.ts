@@ -5,6 +5,19 @@ export function middleware(request: NextRequest) {
   const url = new URL(request.url);
   const path = url.pathname;
   
+  // Handle admin routes protection
+  if (path.startsWith('/admin') && !path.startsWith('/api/admin') && !path.startsWith('/admin/login')) {
+    // Check for admin cookie to avoid redirect loops
+    const adminCookie = request.cookies.get('adminAuthenticated')?.value;
+    
+    if (adminCookie !== 'true') {
+      // Only redirect if no admin cookie found
+      const response = NextResponse.redirect(new URL('/admin/login', url.origin));
+      response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+      return response;
+    }
+  }
+  
   // Handle redirections for ext/* endpoints
   if (path.startsWith('/ext/')) {
     let response = null;
@@ -35,7 +48,6 @@ export function middleware(request: NextRequest) {
     
     // If we're redirecting, add cache headers and return
     if (response) {
-      // Add no-cache headers to redirects
       response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
       response.headers.set('CDN-Cache-Control', 'no-store');
       response.headers.set('Vercel-CDN-Cache-Control', 'no-store');
@@ -51,7 +63,7 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
-// Update the matcher to apply to all routes, not just /ext/
+// Update the matcher to continue applying to all routes except Next.js assets
 export const config = {
   matcher: [
     // Matches all routes except Next.js assets 
