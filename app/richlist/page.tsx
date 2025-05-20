@@ -14,6 +14,10 @@ import Link from 'next/link';
 import { Wallet, Coins } from 'lucide-react';
 import { getBlockchainStats } from "@/lib/blockchain-api";
 
+// Force this page to be dynamically rendered
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: `Rich List | ${process.env.NEXT_PUBLIC_COIN_NAME} Explorer`,
   description: `Top addresses by balance on the ${process.env.NEXT_PUBLIC_COIN_NAME} blockchain`,
@@ -47,37 +51,55 @@ function formatBalance(amount: number): string {
   }
 }
 
-async function getTopAddresses(limit: number = 100) {
+// Get top addresses DIRECTLY from the addresses collection
+async function getTopAddresses(limit: number = 100): Promise<AddressBalance[]> {
   const client = await clientPromise;
   const db = client.db();
   
   try {
-    // Get addresses with highest balances, limited to top 100
+    // Direct query from addresses collection - always fresh data
     const addressDocs = await db.collection('addresses')
-      .find({})
-      .sort({ balance: -1 }) // Sort by balance descending (highest first)
-      .limit(limit)
+      .find({ balance: { $gt: 0 } })  // Only addresses with positive balances
+      .sort({ balance: -1 })          // Highest first
+      .limit(limit)                   // Limit to top 100
       .toArray();
     
-    // Map to our AddressBalance interface
-    const addresses: AddressBalance[] = addressDocs.map(doc => {
-      return {
-        // Use a_id as the primary address field
-        address: doc.a_id || doc.address || doc.addr || doc._id?.toString() || "Unknown",
-        balance: Number(doc.balance || 0),
-        txCount: (doc.txs?.length || 0)  // Use the length of the txs array
-      };
-    });
+    // Debugging code
+    const targetAddress = addressDocs.find(doc => doc.a_id === "TqExosWP37HtqVJiHwpWi1jBYpLwzAdptK");
+    if (targetAddress) {
+      console.log("DEBUG - Problem Address:", {
+        address: targetAddress.a_id,
+        rawBalance: targetAddress.balance,
+        numberBalance: Number(targetAddress.balance),
+        formattedBalance: formatBalance(Number(targetAddress.balance))
+      });
       
-    return addresses;
+      // Check another address for comparison
+      const otherAddress = addressDocs.find(doc => doc.balance > 5000000);
+      if (otherAddress) {
+        console.log("DEBUG - Comparison Address:", {
+          address: otherAddress.a_id,
+          rawBalance: otherAddress.balance,
+          numberBalance: Number(otherAddress.balance),
+          formattedBalance: formatBalance(Number(otherAddress.balance))
+        });
+      }
+    }
+    
+    // Map to the required format
+    return addressDocs.map(doc => ({
+      address: doc.a_id,
+      balance: Number(doc.balance || 0),
+      txCount: (doc.txs?.length || 0)
+    }));
   } catch (error) {
     console.error("Error fetching top addresses:", error);
-    return []; // Return empty array on error
+    return [];
   }
 }
 
 export default async function RichListPage() {
-  // Get top 100 addresses
+  // Get top 100 addresses directly from the addresses collection
   const addresses = await getTopAddresses(100);
   
   // Get blockchain stats to calculate percentage of total supply

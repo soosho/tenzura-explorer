@@ -3,11 +3,6 @@ const nextConfig = {
   // Enable React strict mode for better development experience
   reactStrictMode: true,
   
-  // Add experimental options to prevent optimization that could cause caching
-  experimental: {
-    // We'll use a different approach instead
-  },
-  
   // Add headers to all pages
   async headers() {
     return [
@@ -44,9 +39,12 @@ const nextConfig = {
     ];
   },
   
-  // Image configuration
+  // Image configuration - add GitHub raw content domain
   images: {
-    domains: ['chain.tenzura.io'],
+    domains: [
+      'chain.tenzura.io',
+      'raw.githubusercontent.com'  // Added this domain
+    ],
   },
   
   swcMinify: true,

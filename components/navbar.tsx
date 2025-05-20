@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Menu, X, Home, Database, ListOrdered, Code } from 'lucide-react';
+import Image from 'next/image';  // Add this import
+import { Menu, X, Home, Database, ListOrdered, Code, Network } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Navigation links with their routes and icons
@@ -10,6 +11,7 @@ const navLinks = [
   { href: "/", label: "Home", icon: Home },
   { href: "/blocks", label: "Blocks", icon: Database },
   { href: "/richlist", label: "Rich List", icon: ListOrdered },
+  { href: "/peers", label: "Network Peers", icon: Network },
   { href: "/api", label: "API", icon: Code },
 ];
 
@@ -58,10 +60,13 @@ export function NavbarWrapper() {
             isScrolled ? "h-8 w-8" : "h-10 w-10",
             "transition-all duration-300"
           )}>
-            <img 
-              src={process.env.NEXT_PUBLIC_LOGO_PATH} 
-              alt={process.env.NEXT_PUBLIC_COIN_NAME}
-              className="h-full w-full object-contain" 
+            <Image 
+              src={process.env.NEXT_PUBLIC_LOGO_PATH || '/logo.png'}
+              alt={process.env.NEXT_PUBLIC_COIN_NAME || 'Blockchain Explorer'}
+              className="object-contain" 
+              fill
+              sizes="(max-width: 768px) 40px, 32px"
+              priority
             />
           </div>
           <span className={cn(

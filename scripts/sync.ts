@@ -7,6 +7,12 @@ import { Db } from 'mongodb';
 import { Block as DBBlock, Transaction as DBTransaction, TransactionInput, TransactionOutput, RichlistEntry } from '../lib/models';
 import { Block as RPCBlock, Transaction as RPCTransaction, TransactionOutput as RPCTransactionOutput } from 'bitcoin-core';
 
+// Add this interface definition based on getaddressbalance RPC command
+interface AddressBalanceResult {
+  balance: string | number;  // Can be string or number depending on the RPC response
+  received: string | number;
+}
+
 // Set default mode and database
 let mode = 'update';
 let database = 'index';
@@ -24,6 +30,8 @@ function usage() {
   console.log('check        Checks index for (and adds) any missing transactions/addresses');
   console.log('reindex      Clears index then resyncs from genesis to current block');
   console.log('reindex-rich Clears richlist then recreates it (does not alter blocks/txs)');
+  console.log('rebuild-address <address>  Recalculates balance for a specific address');
+  console.log('rebuild-all-addresses  Recalculates all address balances (fixes richlist permanently)');
   console.log('');
   console.log('notes:');
   console.log('* \'current block\' is the latest created block when script is executed.');
@@ -49,6 +57,12 @@ if (process.argv[2] === 'index') {
         break;
       case 'reindex-rich':
         mode = 'reindex-rich';
+        break;
+      case 'rebuild-address':  // Add this case
+        mode = 'rebuild-address';
+        break;
+      case 'rebuild-all-addresses':
+        mode = 'rebuild-all-addresses';
         break;
       default:
         usage();
@@ -436,28 +450,67 @@ async function verifyBlockTransactions(db: Db, height: number, blockHash: string
 
 // Update the richlist
 async function updateRichlist(db: Db): Promise<void> {
-  console.log('Updating richlist...');
+  console.log('Updating richlist with verification...');
   
-  type AddressWithBalance = {
-    a_id: string;
-    balance: number;
-    received: number;
-  };
-  
-  // Get top 100 addresses by balance
-  const topBalance = await db.collection<AddressWithBalance>('addresses')
+  // First verify the top 200 addresses (more than we need) for confidence
+  const topAddresses = await db.collection('addresses')
     .find({})
+    .sort({ balance: -1 })
+    .limit(200)
+    .toArray();
+    
+  console.log(`Verifying balances for top ${topAddresses.length} addresses...`);
+  let verifiedCount = 0;
+  
+  // Verify each address by recalculating its balance
+  for (const addr of topAddresses) {
+    const address = addr.a_id;
+    
+    // Get all transactions for this address
+    const txs = await db.collection('addresstxs')
+      .find({ a_id: address })
+      .toArray();
+      
+    // Calculate actual balance from transactions
+    const actualBalance = txs.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+    
+    // If there's a discrepancy, fix it
+    if (Math.abs(actualBalance - addr.balance) > 0.00001) {
+      console.log(`Fixing balance discrepancy for ${address}: ${addr.balance} → ${actualBalance}`);
+      
+      // Recalculate received and sent too
+      const received = txs
+        .filter(tx => tx.amount > 0)
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      const sent = txs
+        .filter(tx => tx.amount < 0)
+        .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        
+      // Update with correct values
+      await db.collection('addresses').updateOne(
+        { a_id: address },
+        { $set: { balance: actualBalance, received, sent } }
+      );
+    } else {
+      verifiedCount++;
+    }
+  }
+  
+  console.log(`Address verification complete: ${verifiedCount}/${topAddresses.length} were already correct`);
+  
+  // Now get the verified top addresses
+  const topBalance = await db.collection('addresses')
+    .find({ balance: { $gt: 0 } })
     .sort({ balance: -1 })
     .limit(100)
     .toArray();
   
-  // Get top 100 addresses by received amount
-  const topReceived = await db.collection<AddressWithBalance>('addresses')
-    .find({})
+  const topReceived = await db.collection('addresses')
+    .find({ received: { $gt: 0 } })
     .sort({ received: -1 })
     .limit(100)
     .toArray();
-  
+    
   // Format the richlist entries
   const balanceList: RichlistEntry[] = topBalance.map(addr => ({
     address: addr.a_id,
@@ -654,6 +707,33 @@ isLocked(async (locked) => {
             // Update richlist
             await updateRichlist(db);
             console.log('Richlist reindexed successfully');
+          } else if (mode === 'rebuild-address') {
+            if (process.argv.length < 5) {
+              console.log('Usage: tsx scripts/sync.ts index rebuild-address <address>');
+              exit();
+            }
+            
+            const address = process.argv[4];
+            console.log(`Rebuilding balance for address ${address}...`);
+            
+            await rebuildAddressBalances(db, address);
+            await updateRichlist(db);
+            console.log('Address balance rebuilt and richlist updated');
+          } else if (mode === 'rebuild-all-addresses') {
+            console.log('Rebuilding ALL address balances directly from blockchain...');
+            
+            // First rebuild balances from blockchain
+            await rebuildAddressBalances(db);
+            
+            // Then rebuild the richlist from these verified balances
+            await db.collection('richlist').updateOne(
+              { coin: process.env.NEXT_PUBLIC_COIN_SYMBOL },
+              { $set: { received: [], balance: [] } },
+              { upsert: true }
+            );
+            
+            await updateRichlist(db);
+            console.log('All address balances rebuilt and richlist updated');
           }
         } else if (database === 'market') {
           console.log('Updating market data...');
@@ -670,3 +750,58 @@ isLocked(async (locked) => {
     });
   }
 });
+
+async function rebuildAddressBalances(db: Db, specificAddress?: string) {
+  const query = specificAddress ? { a_id: specificAddress } : {};
+  
+  // Get all addresses or specific address
+  const addresses = await db.collection('addresses')
+    .find(query)
+    .project({ a_id: 1 })
+    .toArray();
+    
+  console.log(`Rebuilding balances for ${addresses.length} addresses...`);
+  
+  // Process in batches to avoid overloading the node
+  const BATCH_SIZE = 50;
+  
+  for (let i = 0; i < addresses.length; i += BATCH_SIZE) {
+    const batch = addresses.slice(i, i + BATCH_SIZE);
+    
+    for (const addr of batch) {
+      const address = addr.a_id;
+      console.log(`Getting blockchain balance for ${address}`);
+      
+      try {
+        // Get balance directly from blockchain - the source of truth!
+        const balanceResult = await client.command('getaddressbalance', { 
+          addresses: [address] 
+        }) as AddressBalanceResult;  // Add this type assertion
+        
+        // The command returns balance and received in satoshis, so convert if needed
+        const balance = Number(balanceResult.balance) * 100000000; // Convert to satoshis
+        const received = Number(balanceResult.received) * 100000000; // Convert to satoshis
+        
+        // Calculate sent as received - balance (since you can't query sent directly)
+        const sent = received - balance;
+        
+        // Update with the correct balance from blockchain
+        await db.collection('addresses').updateOne(
+          { a_id: address },
+          { $set: { balance, received, sent } }
+        );
+        
+        console.log(`Updated ${address}: Balance=${balance}, Received=${received}, Sent=${sent}`);
+      } catch (error) {
+        console.error(`Failed to get balance for ${address}:`, error);
+      }
+    }
+    
+    // Add a small delay between batches to prevent overloading the node
+    if (i + BATCH_SIZE < addresses.length) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+  
+  console.log(`All address balances updated directly from blockchain`);
+}
