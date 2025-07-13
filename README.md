@@ -2,7 +2,10 @@
 
 A blockchain explorer built with Next.js for Tenzura and other Bitcoin-based cryptocurrencies. This explorer connects directly to your blockchain node via RPC to provide real-time blockchain data and optionally uses MongoDB for enhanced features like address tracking and rich lists.
 
-🔗 **Live Demo**: [https://chain.tenzura.io](https://chain.tenzura.io)
+🔗 **Live Demo**: [https://chain.tenzura.io](https://chain.tenzura.io)  
+💝 **Support Development**: [Donate with Crypto](https://nowpayments.io/donation/soosho)
+
+> **Note**: This project was previously a private repository, so the git commit history may contain non-descriptive commit messages.
 
 ## Features
 
@@ -224,9 +227,11 @@ The explorer should work with any Bitcoin Core compatible RPC interface.
 
 ## Support the Development
 
-If you find this project useful, consider supporting its development through cryptocurrency donations:
+If you find this project useful, consider supporting its development:
 
-🚀 **[Donate with Crypto](https://nowpayments.io/donation/soosho)** - Supports multiple cryptocurrencies
+🚀 **[Donate with Crypto](https://nowpayments.io/donation/soosho)** - Bitcoin, Ethereum, and many other cryptocurrencies accepted
+
+Your support helps keep this project maintained and improved!
 
 ## Issues
 
